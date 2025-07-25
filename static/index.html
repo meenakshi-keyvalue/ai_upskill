@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contract PDF Extractor</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 40px;
+        background: #f9f9f9;
+      }
+      .container {
+        max-width: 600px;
+        margin: auto;
+        background: #fff;
+        padding: 24px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+      h2 {
+        text-align: center;
+      }
+      input[type="file"] {
+        margin-bottom: 16px;
+        width: 100%;
+      }
+      textarea {
+        width: 100%;
+        min-height: 300px;
+        margin-top: 16px;
+        padding: 12px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        font-size: 1em;
+      }
+      button {
+        padding: 10px 24px;
+        border: none;
+        background: #007bff;
+        color: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1em;
+        width: 100%;
+      }
+      button:disabled {
+        background: #aaa;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Contract PDF Extractor</h2>
+      <input type="file" id="pdfInput" accept="application/pdf" />
+      <button id="uploadBtn" disabled>Upload & Extract</button>
+      <textarea
+        id="output"
+        placeholder="Extracted contract information will appear here..."
+        readonly
+        style="
+          width: 100%;
+          min-height: 120px;
+          margin-top: 16px;
+          padding: 12px;
+          border-radius: 4px;
+          border: 1px solid #ccc;
+          font-size: 1em;
+        "
+      ></textarea>
+      <hr style="margin: 32px 0; border: none; border-top: 1px solid #eee" />
+      <h2>Contract Chat Assistant</h2>
+      <div
+        id="chat"
+        style="
+          height: 250px;
+          overflow-y: auto;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          padding: 12px;
+          background: #fafbfc;
+          margin-bottom: 16px;
+        "
+      ></div>
+      <form id="chatForm" style="display: flex; gap: 8px">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Type your question..."
+          style="
+            flex: 1;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+          "
+          autocomplete="off"
+        />
+        <button type="submit" style="width: 100px">Send</button>
+      </form>
+    </div>
+
+    <script>
+      // PDF Extraction UI
+      const pdfInput = document.getElementById("pdfInput");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const output = document.getElementById("output");
+
+      pdfInput.addEventListener("change", () => {
+        uploadBtn.disabled = !pdfInput.files.length;
+      });
+
+      uploadBtn.addEventListener("click", async () => {
+        if (!pdfInput.files.length) return;
+        const formData = new FormData();
+        formData.append("file", pdfInput.files[0]);
+        output.value = "Extracting contract details, please wait...";
+        try {
+          const response = await fetch("/extract-contract-info", {
+            method: "POST",
+            body: formData,
+          });
+          if (!response.ok) throw new Error("Extraction failed");
+          const data = await response.json();
+          output.value = JSON.stringify(data, null, 2);
+        } catch (err) {
+          output.value = "❌ Error: " + err.message;
+        }
+      });
+
+      // Chat UI
+      const chat = document.getElementById("chat");
+      const chatForm = document.getElementById("chatForm");
+      const userInput = document.getElementById("userInput");
+
+      function appendMessage(sender, text) {
+        const msgDiv = document.createElement("div");
+        msgDiv.style.marginBottom = "12px";
+        msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+        chat.appendChild(msgDiv);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      chatForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const question = userInput.value.trim();
+        if (!question) return;
+        appendMessage("You", question);
+        userInput.value = "";
+        appendMessage("System", "...");
+        try {
+          const response = await fetch("/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question }),
+          });
+          if (!response.ok) throw new Error("Failed to get answer");
+          const data = await response.json();
+          // Remove the '...' placeholder
+          chat.removeChild(chat.lastChild);
+          appendMessage("System", data.answer || JSON.stringify(data));
+        } catch (err) {
+          chat.removeChild(chat.lastChild);
+          appendMessage("System", "❌ Error: " + err.message);
+        }
+      });
+    </script>
+  </body>
+</html>
